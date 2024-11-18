@@ -5,10 +5,9 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-#include "http_message.h"
+#include "request.h"
 
-#define DEFAULT_PORT 80
-#define BUFFER_SIZE 1024
+#define DEFAULT_PORT 46645
 
 int check(int exp, const char *msg) {
     if (exp < 0) {
@@ -17,44 +16,50 @@ int check(int exp, const char *msg) {
     }
     return exp;
 }
-int respond_to_http_client_message(int sock_fd, http_client_message_t* http_msg)
-{
-    char *response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
-    write(sock_fd, response, strlen(response));
-    return 0;
+
+void server_dispatch_request(Request* req, int fd) {
+    printf("Dispatching request\n");
 }
 
-void* handleConnection(void* a_client_ptr)
+void* handleConnection(int* sock_fd_ptr)
 {
-    int a_client = *(int*)a_client_ptr;
-    free(a_client_ptr);
+    int sock_fd = *sock_fd_ptr;
+    free(sock_fd_ptr);
 
     while(1) {
-        char buffer[BUFFER_SIZE];
-        http_client_message_t* http_msg;
-        http_read_result_t result;
-
-        read_http_client_message(a_client, &http_msg, &result);
-        if (result == BAD_REQUEST) { 
-            printf("Connection closed\n");
-            close(a_client);
-            exit(1); 
-        } else if (result == CLOSED_CONNECTION) {
-            printf("Connection closed\n");
-            close(a_client);
-            exit(1);
+        Request* req = request_read_from_fd(sock_fd);
+        if (req == NULL) {
+            break;
         }
+        request_print(req);
 
-        respond_to_http_client_message(a_client, http_msg);
-        http_client_message_free(http_msg);
+        server_dispatch_request(req, sock_fd);
+        request_free(req);
     }
-    printf("Finished connection %d\n", a_client);
+    printf("Finished connection %d\n", sock_fd);
+    close(sock_fd);
 }
 
 int main(int argc, char const *argv[]) {    
-    if (argc != 3 || strcmp(argv[1], "-p") != 0) {
-        printf("Usage: <./filename> -p <port>\n");
-        exit(1);
+    if (argc == 2 && !strcmp(argv[1], "--request") != 0) {
+        printf("Reading ONE request from stdin\n");
+        Request* req = request_read_from_fd(0);
+        if (req == NULL) {
+            printf("Failed to read request\n");
+            exit(1);
+        }
+        request_print(req);
+        request_free(req);
+        exit(0);
+    }
+
+    if (argc == 2 && !strcmp(argv[1], "--handle") != 0) {
+        printf("Reading ONE connection from stdin\n");
+        int* sock_fd = malloc(sizeof(int));
+        *sock_fd = 0;
+        handleConnection(sock_fd);
+        printf("Done handling connection\n");
+        exit(0);
     }
 
     int socket_fd, client_sock;
@@ -63,12 +68,11 @@ int main(int argc, char const *argv[]) {
 
     check(socket_fd = socket(AF_INET, SOCK_STREAM, 0), "Failed to create a socket");
 
-    int port = atoi(argv[2]);
 
     memset(&sock_addr, 0, sizeof(sock_addr));
     sock_addr.sin_family = AF_INET;
     sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    sock_addr.sin_port = htons(port);
+    sock_addr.sin_port = htons(DEFAULT_PORT);
 
     int returnval;
 
@@ -77,7 +81,7 @@ int main(int argc, char const *argv[]) {
 
     check(returnval = listen(socket_fd, 5), "Failed to listen");
 
-    printf("Server listening on port %d. Waiting for a connection...\n", port);
+    printf("Server listening on port %d. Waiting for a connection...\n", DEFAULT_PORT);
     while (1) {
         socklen_t client_addr_len = sizeof(client_addr);
     
@@ -90,7 +94,7 @@ int main(int argc, char const *argv[]) {
         *client_sock_ptr = client_sock;
 
         pthread_t thread;
-        pthread_create(&thread, NULL, handleConnection, (void*)client_sock_ptr);
+        pthread_create(&thread, NULL, (void* (*)(void*))handleConnection, client_sock_ptr);
     
     }
     return 0;

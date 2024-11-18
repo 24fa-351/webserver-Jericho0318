@@ -1,6 +1,6 @@
-webserver: webserver.c http_message.c
-	gcc -o webserver webserver.c http_message.c -lpthread -lm
+webserver: webserver.c request.c
+	gcc -o webserver webserver.c request.c -lpthread -lm
 
 clean:
 	rm webserver
-	rm http_message
+	rm request
