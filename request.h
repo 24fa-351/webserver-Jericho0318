@@ -18,8 +18,6 @@ Request* request_read_from_fd(int fd);
 
 void request_print(Request* req);
 
-void serve_static(int client_sock, const char *filepath);
-
 void request_free(Request* req);
 
 #endif
