@@ -9,7 +9,7 @@ typedef struct {
 
 Request* request_read_from_fd(int fd);
 
-void server_static(int client_sock, const char *filepath);
+void server_static(int client_sock, const char* filepath);
 
 void request_free(Request* req);
 
