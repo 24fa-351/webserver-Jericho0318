@@ -1,11 +1,12 @@
+#include "request.h"
+
+#include <arpa/inet.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <arpa/inet.h>
-#include "request.h"
+#include <unistd.h>
 
 #define BUFFER_SIZE 1024
 
@@ -14,12 +15,11 @@ Request* request_read_from_fd(int fd) {
     req->method = malloc(1000);
     req->path = malloc(1000);
     req->version = malloc(1000);
-    
+
     char buffer[BUFFER_SIZE];
     int bytes_read = read(fd, buffer, sizeof(buffer) - 1);
-    if (bytes_read <= 0) {
+    if (bytes_read <= 0)
         return NULL;
-    }
     buffer[bytes_read] = '\0';
 
     sscanf(buffer, "%s %s %s", req->method, req->path, req->version);
@@ -49,14 +49,14 @@ void server_static(int client_sock, const char* filepath) {
     struct stat st;
     fstat(file_fd, &st);
     char header[BUFFER_SIZE];
-    snprintf(header, sizeof(header), "HTTP/1.1 200 OK\nContent-Length: %ld\n\n", st.st_size);
+    snprintf(header, sizeof(header), "HTTP/1.1 200 OK\nContent-Length: %ld\n\n",
+             st.st_size);
     send(client_sock, header, strlen(header), 0);
 
     char file_buffer[BUFFER_SIZE];
     int bytes;
-    while ((bytes = read(file_fd, file_buffer, sizeof(file_buffer))) > 0) {
+    while ((bytes = read(file_fd, file_buffer, sizeof(file_buffer))) > 0)
         send(client_sock, file_buffer, bytes, 0);
-    }
 
     close(file_fd);
 }
